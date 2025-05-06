@@ -1,613 +1,771 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-    }
-    
-    h2 {
-      margin-top: 0;
-      margin-bottom: 10px;
-      font-size: 16px;
-    }
-    
-    .section {
-      margin-bottom: 20px;
-    }
-    
-    select, button {
-      width: 100%;
-      padding: 8px;
-      margin-bottom: 10px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-    }
-    
-    button {
-      background-color: #18A0FB;
-      color: white;
-      border: none;
-      cursor: pointer;
-      font-weight: 500;
-    }
-    
-    button:hover {
-      background-color: #0D8DE3;
-    }
-    
-    .error {
-      color: #D62828;
-      margin-bottom: 10px;
-    }
-    
-    .success {
-      color: #43B581;
-      margin-bottom: 10px;
-    }
-    
-    textarea {
-      width: 100%;
-      height: 200px;
-      padding: 8px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-      font-family: monospace;
-      font-size: 12px;
-      resize: vertical;
-    }
-    
-    .code-options {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-    
-    .code-options label {
-      display: flex;
-      align-items: center;
-      font-size: 14px;
-    }
-    
-    .code-options input {
-      margin-right: 5px;
-    }
-    
-    .tabs {
-      display: flex;
-      border-bottom: 1px solid #ccc;
-      margin-bottom: 10px;
-    }
-    
-    .tab {
-      padding: 8px 12px;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-    }
-    
-    .tab.active {
-      border-bottom: 2px solid #18A0FB;
-      font-weight: 500;
-    }
-  </style>
-</head>
-<body>
-  <div class="section">
-    <h2>Figma to React Component</h2>
-    <p>Select a component in Figma and generate React code</p>
-    <div id="error" class="error" style="display: none;"></div>
-    <div id="success" class="success" style="display: none;"></div>
-    
-    <div class="section">
-      <select id="framework">
-        <option value="react">React</option>
-        <option value="react-typescript">React + TypeScript</option>
-        <option value="react-styled">React + Styled Components</option>
-        <option value="react-tailwind">React + Tailwind CSS</option>
-      </select>
-    </div>
-    
-    <button id="generate">Generate Component</button>
-  </div>
-  
-  <div id="result-container" class="section" style="display: none;">
-    <div class="tabs">
-      <div class="tab active" data-tab="component">Component</div>
-      <div class="tab" data-tab="styles">Styles</div>
-      <div class="tab" data-tab="types">Types</div>
-    </div>
-    
-    <div id="tab-component" class="tab-content">
-      <div class="code-options">
-        <label>
-          <input type="checkbox" id="use-hooks" checked> Use React Hooks
-        </label>
-        <label>
-          <input type="checkbox" id="include-props" checked> Include Props Interface
-        </label>
-      </div>
-      <textarea id="component-code" readonly></textarea>
-      <button id="copy-component">Copy Component Code</button>
-    </div>
-    
-    <div id="tab-styles" class="tab-content" style="display: none;">
-      <textarea id="styles-code" readonly></textarea>
-      <button id="copy-styles">Copy Styles Code</button>
-    </div>
-    
-    <div id="tab-types" class="tab-content" style="display: none;">
-      <textarea id="types-code" readonly></textarea>
-      <button id="copy-types">Copy Types Code</button>
-    </div>
-  </div>
-
-  <script>
-    // Handle UI interactions
-    document.getElementById('generate').onclick = () => {
-      // Tell the plugin to generate component code
-      parent.postMessage({ pluginMessage: { type: 'generate-component' } }, '*');
-    };
-    
-    // Handle tabs
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.onclick = () => {
-        // Set active tab
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        
-        // Show active content
-        document.querySelectorAll('.tab-content').forEach(content => {
-          content.style.display = 'none';
-        });
-        document.getElementById(`tab-${tab.dataset.tab}`).style.display = 'block';
-      };
-    });
-    
-    // Copy button handlers
-    document.getElementById('copy-component').onclick = () => {
-      copyToClipboard(document.getElementById('component-code'));
-    };
-    
-    document.getElementById('copy-styles').onclick = () => {
-      copyToClipboard(document.getElementById('styles-code'));
-    };
-    
-    document.getElementById('copy-types').onclick = () => {
-      copyToClipboard(document.getElementById('types-code'));
-    };
-    
-    function copyToClipboard(textarea) {
-      textarea.select();
-      document.execCommand('copy');
-      
-      const success = document.getElementById('success');
-      success.textContent = 'Copied to clipboard!';
-      success.style.display = 'block';
-      
-      setTimeout(() => {
-        success.style.display = 'none';
-      }, 2000);
-    }
-    
-    // Listen for messages from the plugin code
-    window.onmessage = event => {
-      const msg = event.data.pluginMessage;
-      
-      if (msg.type === 'error') {
-        const error = document.getElementById('error');
-        error.textContent = msg.message;
-        error.style.display = 'block';
-        
-        setTimeout(() => {
-          error.style.display = 'none';
-        }, 5000);
+  <head>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
       }
-      
-      if (msg.type === 'component-data') {
-        // Show result container
-        document.getElementById('result-container').style.display = 'block';
-        
-        // Generate code based on the selected framework
-        const framework = document.getElementById('framework').value;
-        const useHooks = document.getElementById('use-hooks').checked;
-        const includeProps = document.getElementById('include-props').checked;
-        
-        // Generate code
-        const code = generateComponentCode(msg.componentData, msg.componentType, framework, useHooks, includeProps);
-        
-        // Update UI
-        document.getElementById('component-code').value = code.component;
-        document.getElementById('styles-code').value = code.styles;
-        document.getElementById('types-code').value = code.types;
-        
-        // Show success message
+
+      h2 {
+        margin-top: 0;
+        margin-bottom: 10px;
+        font-size: 16px;
+      }
+
+      .section {
+        margin-bottom: 20px;
+      }
+
+      select,
+      button {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+
+      button {
+        background-color: #18a0fb;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+      }
+
+      button:hover {
+        background-color: #0d8de3;
+      }
+
+      .error {
+        color: #d62828;
+        margin-bottom: 10px;
+      }
+
+      .success {
+        color: #43b581;
+        margin-bottom: 10px;
+      }
+
+      textarea {
+        width: 100%;
+        height: 200px;
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        font-family: monospace;
+        font-size: 12px;
+        resize: vertical;
+      }
+
+      .code-options {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .code-options label {
+        display: flex;
+        align-items: center;
+        font-size: 14px;
+      }
+
+      .code-options input {
+        margin-right: 5px;
+      }
+
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid #ccc;
+        margin-bottom: 10px;
+      }
+
+      .tab {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+      }
+
+      .tab.active {
+        border-bottom: 2px solid #18a0fb;
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="section">
+      <h2>Figma to React Component</h2>
+      <p>Select a component in Figma and generate React code</p>
+      <div id="error" class="error" style="display: none"></div>
+      <div id="success" class="success" style="display: none"></div>
+
+      <div class="section">
+        <select id="framework">
+          <option value="react">React</option>
+          <option value="react-typescript">React + TypeScript</option>
+          <option value="react-styled">React + Styled Components</option>
+          <option value="react-tailwind">React + Tailwind CSS</option>
+        </select>
+      </div>
+
+      <button id="generate">Generate Component</button>
+    </div>
+
+    <div id="result-container" class="section" style="display: none">
+      <div class="tabs">
+        <div class="tab active" data-tab="component">Component</div>
+        <div class="tab" data-tab="styles">Styles</div>
+        <div class="tab" data-tab="types">Types</div>
+      </div>
+
+      <div id="tab-component" class="tab-content">
+        <div class="code-options">
+          <label>
+            <input type="checkbox" id="use-hooks" checked /> Use React Hooks
+          </label>
+          <label>
+            <input type="checkbox" id="include-props" checked /> Include Props
+            Interface
+          </label>
+        </div>
+        <textarea id="component-code" readonly></textarea>
+        <button id="copy-component">Copy Component Code</button>
+      </div>
+
+      <div id="tab-styles" class="tab-content" style="display: none">
+        <textarea id="styles-code" readonly></textarea>
+        <button id="copy-styles">Copy Styles Code</button>
+      </div>
+
+      <div id="tab-types" class="tab-content" style="display: none">
+        <textarea id="types-code" readonly></textarea>
+        <button id="copy-types">Copy Types Code</button>
+      </div>
+    </div>
+
+    <script>
+      // Handle UI interactions
+      document.getElementById('generate').onclick = () => {
+        // Tell the plugin to generate component code
+        parent.postMessage(
+          { pluginMessage: { type: 'generate-component' } },
+          '*'
+        );
+      };
+
+      // Handle tabs
+      document.querySelectorAll('.tab').forEach((tab) => {
+        tab.onclick = () => {
+          // Set active tab
+          document
+            .querySelectorAll('.tab')
+            .forEach((t) => t.classList.remove('active'));
+          tab.classList.add('active');
+
+          // Show active content
+          document.querySelectorAll('.tab-content').forEach((content) => {
+            content.style.display = 'none';
+          });
+          document.getElementById(`tab-${tab.dataset.tab}`).style.display =
+            'block';
+        };
+      });
+
+      // Copy button handlers
+      document.getElementById('copy-component').onclick = () => {
+        copyToClipboard(document.getElementById('component-code'));
+      };
+
+      document.getElementById('copy-styles').onclick = () => {
+        copyToClipboard(document.getElementById('styles-code'));
+      };
+
+      document.getElementById('copy-types').onclick = () => {
+        copyToClipboard(document.getElementById('types-code'));
+      };
+
+      function copyToClipboard(textarea) {
+        textarea.select();
+        document.execCommand('copy');
+
         const success = document.getElementById('success');
-        success.textContent = `Successfully generated ${msg.componentType} component!`;
+        success.textContent = 'Copied to clipboard!';
         success.style.display = 'block';
-        
+
         setTimeout(() => {
           success.style.display = 'none';
-        }, 3000);
+        }, 2000);
       }
-    };
-    
-    // Generate React component code
-    function generateComponentCode(componentData, componentType, framework, useHooks, includeProps) {
-      // This is a simplified code generator - a real one would be much more sophisticated
-      const { name, styles, states, properties } = componentData;
-      const componentName = formatComponentName(name);
-      
-      let component = '';
-      let stylesCode = '';
-      let typesCode = '';
-      
-      // Generate TypeScript interfaces if needed
-      if (framework.includes('typescript') && includeProps) {
-        typesCode = `interface ${componentName}Props {\n`;
-        
-        Object.entries(properties).forEach(([key, value]) => {
-          const isRequired = value.defaultValue === null;
-          typesCode += `  ${key}${isRequired ? '' : '?'}: ${value.type === 'enum' ? 
-            `'${value.defaultValue}'` : value.type};\n`;
-        });
-        
-        typesCode += '}\n';
-      }
-      
-      // Generate component based on framework
-      if (framework.includes('react')) {
-        if (framework.includes('typescript') && includeProps) {
-          component = `import React${useHooks ? ', { useState }' : ''} from 'react';\n\n`;
-          component += typesCode + '\n';
-          component += `const ${componentName}: React.FC<${componentName}Props> = ({\n`;
-        } else {
-          component = `import React${useHooks ? ', { useState }' : ''} from 'react';\n\n`;
-          component += `const ${componentName} = ({\n`;
+
+      // Listen for messages from the plugin code
+      window.onmessage = (event) => {
+        const msg = event.data.pluginMessage;
+
+        if (msg.type === 'error') {
+          const error = document.getElementById('error');
+          error.textContent = msg.message;
+          error.style.display = 'block';
+
+          setTimeout(() => {
+            error.style.display = 'none';
+          }, 5000);
         }
-        
-        // Add props with defaults
-        Object.entries(properties).forEach(([key, value]) => {
-          if (value.type === 'function') {
-            component += `  ${key},\n`;
-          } else if (value.defaultValue !== null) {
-            if (value.type === 'string') {
-              component += `  ${key} = '${value.defaultValue}',\n`;
-            } else {
-              component += `  ${key} = ${value.defaultValue},\n`;
-            }
-          } else {
-            component += `  ${key},\n`;
-          }
-        });
-        
-        component += `  ...props\n`;
-        component += `}) => {\n`;
-        
-        // Add state hooks if using hooks
-        if (useHooks) {
-          component += `  const [isHover, setIsHover] = useState(false);\n`;
-          component += `  const [isFocus, setIsFocus] = useState(false);\n`;
-          component += `  const [isActive, setIsActive] = useState(false);\n\n`;
+
+        if (msg.type === 'component-data') {
+          // Show result container
+          document.getElementById('result-container').style.display = 'block';
+
+          // Generate code based on the selected framework
+          const framework = document.getElementById('framework').value;
+          const useHooks = document.getElementById('use-hooks').checked;
+          const includeProps = document.getElementById('include-props').checked;
+
+          // Generate code
+          const code = generateComponentCode(
+            msg.componentData,
+            msg.componentType,
+            framework,
+            useHooks,
+            includeProps
+          );
+
+          // Update UI
+          document.getElementById('component-code').value = code.component;
+          document.getElementById('styles-code').value = code.styles;
+          document.getElementById('types-code').value = code.types;
+
+          // Show success message
+          const success = document.getElementById('success');
+          success.textContent = `Successfully generated ${msg.componentType} component!`;
+          success.style.display = 'block';
+
+          setTimeout(() => {
+            success.style.display = 'none';
+          }, 3000);
         }
-        
-        // Generate styles based on framework
-        if (framework.includes('tailwind')) {
-          // Generate Tailwind classes
-          const baseClasses = convertStylesToTailwind(styles);
-          const hoverClasses = convertStylesToTailwind(states.hover);
-          const focusClasses = convertStylesToTailwind(states.focus);
-          const activeClasses = convertStylesToTailwind(states.active);
-          
-          component += `  const baseClasses = '${baseClasses}';\n`;
-          component += `  const stateClasses = {\n`;
-          component += `    hover: '${hoverClasses}',\n`;
-          component += `    focus: '${focusClasses}',\n`;
-          component += `    active: '${activeClasses}'\n`;
-          component += `  };\n\n`;
-          
-          component += `  // Combine classes based on state\n`;
-          component += `  const combinedClasses = [\n`;
-          component += `    baseClasses,\n`;
-          component += `    isHover ? stateClasses.hover : '',\n`;
-          component += `    isFocus ? stateClasses.focus : '',\n`;
-          component += `    isActive ? stateClasses.active : ''\n`;
-          component += `  ].filter(Boolean).join(' ');\n\n`;
-          
-          // Generate component JSX
-          component += `  return (\n`;
-          component += `    <${getElementForComponent(componentType)}\n`;
-          component += `      className={combinedClasses}\n`;
-          
-          if (useHooks) {
-            component += `      onMouseEnter={() => setIsHover(true)}\n`;
-            component += `      onMouseLeave={() => { setIsHover(false); setIsActive(false); }}\n`;
-            component += `      onMouseDown={() => setIsActive(true)}\n`;
-            component += `      onMouseUp={() => setIsActive(false)}\n`;
-            component += `      onFocus={() => setIsFocus(true)}\n`;
-            component += `      onBlur={() => setIsFocus(false)}\n`;
-          }
-          
-          component += `      {...props}\n`;
-          component += `    >\n`;
-          component += `      {${properties.children ? 'children' : `'${componentName}'`}}\n`;
-          component += `    </${getElementForComponent(componentType)}>\n`;
-          component += `  );\n`;
-          component += `};\n\n`;
-          component += `export default ${componentName};`;
-        } else if (framework.includes('styled')) {
-          // Generate styled-components
-          stylesCode = `import styled from 'styled-components';\n\n`;
-          stylesCode += `export const Styled${componentName} = styled.${getElementForComponent(componentType)}\`\n`;
-          
-          // Base styles
-          Object.entries(styles).forEach(([key, value]) => {
-            stylesCode += `  ${convertToCssProperty(key)}: ${value};\n`;
-          });
-          
-          // State styles
-          stylesCode += `\n  &:hover {\n`;
-          Object.entries(states.hover).forEach(([key, value]) => {
-            stylesCode += `    ${convertToCssProperty(key)}: ${value};\n`;
-          });
-          stylesCode += `  }\n\n`;
-          
-          stylesCode += `  &:focus {\n`;
-          Object.entries(states.focus).forEach(([key, value]) => {
-            stylesCode += `    ${convertToCssProperty(key)}: ${value};\n`;
-          });
-          stylesCode += `  }\n\n`;
-          
-          stylesCode += `  &:active {\n`;
-          Object.entries(states.active).forEach(([key, value]) => {
-            stylesCode += `    ${convertToCssProperty(key)}: ${value};\n`;
-          });
-          stylesCode += `  }\n`;
-          
-          stylesCode += `\`;\n`;
-          
-          // Component with styled-components
-          component += `  return (\n`;
-          component += `    <Styled${componentName} {...props}>\n`;
-          component += `      {${properties.children ? 'children' : `'${componentName}'`}}\n`;
-          component += `    </Styled${componentName}>\n`;
-          component += `  );\n`;
-          component += `};\n\n`;
-          component += `export default ${componentName};`;
-        } else {
-          // React with inline styles
-          component += `  // Base styles\n`;
-          component += `  const baseStyle = {\n`;
-          Object.entries(styles).forEach(([key, value]) => {
-            component += `    ${key}: '${value}',\n`;
-          });
-          component += `  };\n\n`;
-          
-          // State styles
-          component += `  // State styles\n`;
-          component += `  const hoverStyle = isHover ? {\n`;
-          Object.entries(states.hover).forEach(([key, value]) => {
-            component += `    ${key}: '${value}',\n`;
-          });
-          component += `  } : {};\n\n`;
-          
-          component += `  const focusStyle = isFocus ? {\n`;
-          Object.entries(states.focus).forEach(([key, value]) => {
-            component += `    ${key}: '${value}',\n`;
-          });
-          component += `  } : {};\n\n`;
-          
-          component += `  const activeStyle = isActive ? {\n`;
-          Object.entries(states.active).forEach(([key, value]) => {
-            component += `    ${key}: '${value}',\n`;
-          });
-          component += `  } : {};\n\n`;
-          
-          component += `  // Combine styles\n`;
-          component += `  const combinedStyle = {\n`;
-          component += `    ...baseStyle,\n`;
-          component += `    ...hoverStyle,\n`;
-          component += `    ...focusStyle,\n`;
-          component += `    ...activeStyle,\n`;
-          component += `  };\n\n`;
-          
-          // Generate component JSX
-          component += `  return (\n`;
-          component += `    <${getElementForComponent(componentType)}\n`;
-          component += `      style={combinedStyle}\n`;
-          
-          if (useHooks) {
-            component += `      onMouseEnter={() => setIsHover(true)}\n`;
-            component += `      onMouseLeave={() => { setIsHover(false); setIsActive(false); }}\n`;
-            component += `      onMouseDown={() => setIsActive(true)}\n`;
-            component += `      onMouseUp={() => setIsActive(false)}\n`;
-            component += `      onFocus={() => setIsFocus(true)}\n`;
-            component += `      onBlur={() => setIsFocus(false)}\n`;
-          }
-          
-          component += `      {...props}\n`;
-          component += `    >\n`;
-          component += `      {${properties.children ? 'children' : `'${componentName}'`}}\n`;
-          component += `    </${getElementForComponent(componentType)}>\n`;
-          component += `  );\n`;
-          component += `};\n\n`;
-          component += `export default ${componentName};`;
-        }
-      }
-      
-      return {
-        component,
-        styles: stylesCode,
-        types: typesCode
       };
-    }
-    
-    // Utility functions
-    function formatComponentName(name) {
-      // Convert to PascalCase
-      return name
-        .split(/[-_\s]+/)
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join('');
-    }
-    
-    function getElementForComponent(type) {
-      switch (type) {
-        case 'button': return 'button';
-        case 'input': return 'input';
-        case 'checkbox': return 'input';
-        case 'radio': return 'input';
-        case 'card': return 'div';
-        case 'dropdown': return 'select';
-        case 'modal': return 'div';
-        case 'toggle': return 'label';
-        default: return 'div';
+
+      // Generate React component code
+      function generateComponentCode(
+        componentData,
+        componentType,
+        framework,
+        useHooks,
+        includeProps
+      ) {
+        // This is a simplified code generator - a real one would be much more sophisticated
+        const { name, styles, states, properties } = componentData;
+        const componentName = formatComponentName(name);
+
+        let component = '';
+        let stylesCode = '';
+        let typesCode = '';
+
+        // Generate TypeScript interfaces if needed
+        if (framework.includes('typescript') && includeProps) {
+          typesCode = `interface ${componentName}Props {\n`;
+
+          Object.entries(properties).forEach(([key, value]) => {
+            const isRequired = value.defaultValue === null;
+            typesCode += `  ${key}${isRequired ? '' : '?'}: ${
+              value.type === 'enum' ? `'${value.defaultValue}'` : value.type
+            };\n`;
+          });
+
+          typesCode += '}\n';
+        }
+
+        // Generate component based on framework
+        if (framework.includes('react')) {
+          if (framework.includes('typescript') && includeProps) {
+            component = `import React${
+              useHooks ? ', { useState }' : ''
+            } from 'react';\n\n`;
+            component += typesCode + '\n';
+            component += `const ${componentName}: React.FC<${componentName}Props> = ({\n`;
+          } else {
+            component = `import React${
+              useHooks ? ', { useState }' : ''
+            } from 'react';\n\n`;
+            component += `const ${componentName} = ({\n`;
+          }
+
+          // Add props with defaults
+          Object.entries(properties).forEach(([key, value]) => {
+            if (value.type === 'function') {
+              component += `  ${key},\n`;
+            } else if (value.defaultValue !== null) {
+              if (value.type === 'string') {
+                component += `  ${key} = '${value.defaultValue}',\n`;
+              } else {
+                component += `  ${key} = ${value.defaultValue},\n`;
+              }
+            } else {
+              component += `  ${key},\n`;
+            }
+          });
+
+          component += `  ...props\n`;
+          component += `}) => {\n`;
+
+          // Add state hooks if using hooks
+          if (useHooks) {
+            component += `  const [isHover, setIsHover] = useState(false);\n`;
+            component += `  const [isFocus, setIsFocus] = useState(false);\n`;
+            component += `  const [isActive, setIsActive] = useState(false);\n\n`;
+          }
+
+          // Generate styles based on framework
+          if (framework.includes('tailwind')) {
+            // Generate Tailwind classes
+            const baseClasses = convertStylesToTailwind(styles);
+            const hoverClasses = convertStylesToTailwind(states.hover);
+            const focusClasses = convertStylesToTailwind(states.focus);
+            const activeClasses = convertStylesToTailwind(states.active);
+
+            component += `  const baseClasses = '${baseClasses}';\n`;
+            component += `  const stateClasses = {\n`;
+            component += `    hover: '${hoverClasses}',\n`;
+            component += `    focus: '${focusClasses}',\n`;
+            component += `    active: '${activeClasses}'\n`;
+            component += `  };\n\n`;
+
+            component += `  // Combine classes based on state\n`;
+            component += `  const combinedClasses = [\n`;
+            component += `    baseClasses,\n`;
+            component += `    isHover ? stateClasses.hover : '',\n`;
+            component += `    isFocus ? stateClasses.focus : '',\n`;
+            component += `    isActive ? stateClasses.active : ''\n`;
+            component += `  ].filter(Boolean).join(' ');\n\n`;
+
+            // Generate component JSX
+            component += `  return (\n`;
+            component += `    <${getElementForComponent(componentType)}\n`;
+            component += `      className={combinedClasses}\n`;
+
+            if (useHooks) {
+              component += `      onMouseEnter={() => setIsHover(true)}\n`;
+              component += `      onMouseLeave={() => { setIsHover(false); setIsActive(false); }}\n`;
+              component += `      onMouseDown={() => setIsActive(true)}\n`;
+              component += `      onMouseUp={() => setIsActive(false)}\n`;
+              component += `      onFocus={() => setIsFocus(true)}\n`;
+              component += `      onBlur={() => setIsFocus(false)}\n`;
+            }
+
+            component += `      {...props}\n`;
+            component += `    >\n`;
+            component += `      {${
+              properties.children ? 'children' : `'${componentName}'`
+            }}\n`;
+            component += `    </${getElementForComponent(componentType)}>\n`;
+            component += `  );\n`;
+            component += `};\n\n`;
+            component += `export default ${componentName};`;
+          } else if (framework.includes('styled')) {
+            // Generate styled-components
+            stylesCode = `import styled from 'styled-components';\n\n`;
+            stylesCode += `export const Styled${componentName} = styled.${getElementForComponent(
+              componentType
+            )}\`\n`;
+
+            // Base styles
+            Object.entries(styles).forEach(([key, value]) => {
+              stylesCode += `  ${convertToCssProperty(key)}: ${value};\n`;
+            });
+
+            // State styles
+            stylesCode += `\n  &:hover {\n`;
+            Object.entries(states.hover).forEach(([key, value]) => {
+              stylesCode += `    ${convertToCssProperty(key)}: ${value};\n`;
+            });
+            stylesCode += `  }\n\n`;
+
+            stylesCode += `  &:focus {\n`;
+            Object.entries(states.focus).forEach(([key, value]) => {
+              stylesCode += `    ${convertToCssProperty(key)}: ${value};\n`;
+            });
+            stylesCode += `  }\n\n`;
+
+            stylesCode += `  &:active {\n`;
+            Object.entries(states.active).forEach(([key, value]) => {
+              stylesCode += `    ${convertToCssProperty(key)}: ${value};\n`;
+            });
+            stylesCode += `  }\n`;
+
+            stylesCode += `\`;\n`;
+
+            // Component with styled-components
+            component += `  return (\n`;
+            component += `    <Styled${componentName} {...props}>\n`;
+            component += `      {${
+              properties.children ? 'children' : `'${componentName}'`
+            }}\n`;
+            component += `    </Styled${componentName}>\n`;
+            component += `  );\n`;
+            component += `};\n\n`;
+            component += `export default ${componentName};`;
+          } else {
+            // React with inline styles
+            component += `  // Base styles\n`;
+            component += `  const baseStyle = {\n`;
+            Object.entries(styles).forEach(([key, value]) => {
+              component += `    ${key}: '${value}',\n`;
+            });
+            component += `  };\n\n`;
+
+            // State styles
+            component += `  // State styles\n`;
+            component += `  const hoverStyle = isHover ? {\n`;
+            Object.entries(states.hover).forEach(([key, value]) => {
+              component += `    ${key}: '${value}',\n`;
+            });
+            component += `  } : {};\n\n`;
+
+            component += `  const focusStyle = isFocus ? {\n`;
+            Object.entries(states.focus).forEach(([key, value]) => {
+              component += `    ${key}: '${value}',\n`;
+            });
+            component += `  } : {};\n\n`;
+
+            component += `  const activeStyle = isActive ? {\n`;
+            Object.entries(states.active).forEach(([key, value]) => {
+              component += `    ${key}: '${value}',\n`;
+            });
+            component += `  } : {};\n\n`;
+
+            component += `  // Combine styles\n`;
+            component += `  const combinedStyle = {\n`;
+            component += `    ...baseStyle,\n`;
+            component += `    ...hoverStyle,\n`;
+            component += `    ...focusStyle,\n`;
+            component += `    ...activeStyle,\n`;
+            component += `  };\n\n`;
+
+            // Generate component JSX
+            component += `  return (\n`;
+            component += `    <${getElementForComponent(componentType)}\n`;
+            component += `      style={combinedStyle}\n`;
+
+            if (useHooks) {
+              component += `      onMouseEnter={() => setIsHover(true)}\n`;
+              component += `      onMouseLeave={() => { setIsHover(false); setIsActive(false); }}\n`;
+              component += `      onMouseDown={() => setIsActive(true)}\n`;
+              component += `      onMouseUp={() => setIsActive(false)}\n`;
+              component += `      onFocus={() => setIsFocus(true)}\n`;
+              component += `      onBlur={() => setIsFocus(false)}\n`;
+            }
+
+            component += `      {...props}\n`;
+            component += `    >\n`;
+            component += `      {${
+              properties.children ? 'children' : `'${componentName}'`
+            }}\n`;
+            component += `    </${getElementForComponent(componentType)}>\n`;
+            component += `  );\n`;
+            component += `};\n\n`;
+            component += `export default ${componentName};`;
+          }
+        }
+
+        return {
+          component,
+          styles: stylesCode,
+          types: typesCode,
+        };
       }
-    }
-    
-    function convertToCssProperty(camelCase) {
-      return camelCase.replace(/([A-Z])/g, '-$1').toLowerCase();
-    }
-    
-    function convertStylesToTailwind(styles) {
-      // This is a simplified implementation - a real plugin would use a more comprehensive mapping
-      const tailwindClasses = [];
-      
-      // Background color
-      if (styles.backgroundColor) {
-        const bgColor = convertColorToTailwind(styles.backgroundColor);
-        if (bgColor) tailwindClasses.push(bgColor);
+
+      // Utility functions
+      function formatComponentName(name) {
+        // Convert to PascalCase
+        return name
+          .split(/[-_\s]+/)
+          .map(
+            (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+          )
+          .join('');
       }
-      
-      // Text color
-      if (styles.color) {
-        const textColor = convertColorToTailwind(styles.color, 'text');
-        if (textColor) tailwindClasses.push(textColor);
-      }
-      
-      // Border radius
-      if (styles.borderRadius) {
-        const radius = parseInt(styles.borderRadius);
-        if (radius === 0) tailwindClasses.push('rounded-none');
-        else if (radius <= 2) tailwindClasses.push('rounded-sm');
-        else if (radius <= 4) tailwindClasses.push('rounded');
-        else if (radius <= 6) tailwindClasses.push('rounded-md');
-        else if (radius <= 8) tailwindClasses.push('rounded-lg');
-        else if (radius <= 12) tailwindClasses.push('rounded-xl');
-        else tailwindClasses.push('rounded-full');
-      }
-      
-      // Border
-      if (styles.borderWidth && styles.borderColor) {
-        const width = parseInt(styles.borderWidth);
-        if (width === 1) tailwindClasses.push('border');
-        else if (width === 2) tailwindClasses.push('border-2');
-        else if (width === 4) tailwindClasses.push('border-4');
-        else tailwindClasses.push('border');
-        
-        const borderColor = convertColorToTailwind(styles.borderColor, 'border');
-        if (borderColor) tailwindClasses.push(borderColor);
-      }
-      
-      // Padding
-      if (styles.paddingLeft || styles.paddingRight || styles.paddingTop || styles.paddingBottom) {
-        const px = parseInt(styles.paddingLeft || styles.paddingRight || '0');
-        const py = parseInt(styles.paddingTop || styles.paddingBottom || '0');
-        
-        if (px === py) {
-          if (px === 0) tailwindClasses.push('p-0');
-          else if (px <= 2) tailwindClasses.push('p-1');
-          else if (px <= 4) tailwindClasses.push('p-2');
-          else if (px <= 6) tailwindClasses.push('p-3');
-          else if (px <= 8) tailwindClasses.push('p-4');
-          else if (px <= 12) tailwindClasses.push('p-6');
-          else tailwindClasses.push('p-8');
-        } else {
-          // X padding
-          if (px === 0) tailwindClasses.push('px-0');
-          else if (px <= 2) tailwindClasses.push('px-1');
-          else if (px <= 4) tailwindClasses.push('px-2');
-          else if (px <= 6) tailwindClasses.push('px-3');
-          else if (px <= 8) tailwindClasses.push('px-4');
-          else if (px <= 12) tailwindClasses.push('px-6');
-          else tailwindClasses.push('px-8');
-          
-          // Y padding
-          if (py === 0) tailwindClasses.push('py-0');
-          else if (py <= 2) tailwindClasses.push('py-1');
-          else if (py <= 4) tailwindClasses.push('py-2');
-          else if (py <= 6) tailwindClasses.push('py-3');
-          else if (py <= 8) tailwindClasses.push('py-4');
-          else if (py <= 12) tailwindClasses.push('py-6');
-          else tailwindClasses.push('py-8');
+
+      function getElementForComponent(type) {
+        switch (type) {
+          case 'button':
+            return 'button';
+          case 'input':
+            return 'input';
+          case 'checkbox':
+            return 'input';
+          case 'radio':
+            return 'input';
+          case 'card':
+            return 'div';
+          case 'dropdown':
+            return 'select';
+          case 'modal':
+            return 'div';
+          case 'toggle':
+            return 'label';
+          default:
+            return 'div';
         }
       }
-      
-      // Font size
-      if (styles.fontSize) {
-        const size = parseInt(styles.fontSize);
-        if (size <= 12) tailwindClasses.push('text-xs');
-        else if (size <= 14) tailwindClasses.push('text-sm');
-        else if (size <= 16) tailwindClasses.push('text-base');
-        else if (size <= 18) tailwindClasses.push('text-lg');
-        else if (size <= 20) tailwindClasses.push('text-xl');
-        else if (size <= 24) tailwindClasses.push('text-2xl');
-        else tailwindClasses.push('text-3xl');
+
+      function convertToCssProperty(camelCase) {
+        return camelCase.replace(/([A-Z])/g, '-$1').toLowerCase();
       }
-      
-      // Font weight
-      if (styles.fontWeight) {
-        const weight = parseInt(styles.fontWeight);
-        if (weight <= 300) tailwindClasses.push('font-light');
-        else if (weight <= 400) tailwindClasses.push('font-normal');
-        else if (weight <= 500) tailwindClasses.push('font-medium');
-        else if (weight <= 600) tailwindClasses.push('font-semibold');
-        else tailwindClasses.push('font-bold');
+
+      function convertStylesToTailwind(styles) {
+        // This is a simplified implementation - a real plugin would use a more comprehensive mapping
+        const tailwindClasses = [];
+
+        // Background color
+        if (styles.backgroundColor) {
+          const bgColor = convertColorToTailwind(styles.backgroundColor);
+          if (bgColor) tailwindClasses.push(bgColor);
+        }
+
+        // Text color
+        if (styles.color) {
+          const textColor = convertColorToTailwind(styles.color, 'text');
+          if (textColor) tailwindClasses.push(textColor);
+        }
+
+        // Border radius
+        if (styles.borderRadius) {
+          const radius = parseInt(styles.borderRadius);
+          if (radius === 0) tailwindClasses.push('rounded-none');
+          else if (radius <= 2) tailwindClasses.push('rounded-sm');
+          else if (radius <= 4) tailwindClasses.push('rounded');
+          else if (radius <= 6) tailwindClasses.push('rounded-md');
+          else if (radius <= 8) tailwindClasses.push('rounded-lg');
+          else if (radius <= 12) tailwindClasses.push('rounded-xl');
+          else tailwindClasses.push('rounded-full');
+        }
+
+        // Border
+        if (styles.borderWidth && styles.borderColor) {
+          const width = parseInt(styles.borderWidth);
+          if (width === 1) tailwindClasses.push('border');
+          else if (width === 2) tailwindClasses.push('border-2');
+          else if (width === 4) tailwindClasses.push('border-4');
+          else tailwindClasses.push('border');
+
+          const borderColor = convertColorToTailwind(
+            styles.borderColor,
+            'border'
+          );
+          if (borderColor) tailwindClasses.push(borderColor);
+        }
+
+        // Padding
+        if (
+          styles.paddingLeft ||
+          styles.paddingRight ||
+          styles.paddingTop ||
+          styles.paddingBottom
+        ) {
+          const px = parseInt(styles.paddingLeft || styles.paddingRight || '0');
+          const py = parseInt(styles.paddingTop || styles.paddingBottom || '0');
+
+          if (px === py) {
+            if (px === 0) tailwindClasses.push('p-0');
+            else if (px <= 2) tailwindClasses.push('p-1');
+            else if (px <= 4) tailwindClasses.push('p-2');
+            else if (px <= 6) tailwindClasses.push('p-3');
+            else if (px <= 8) tailwindClasses.push('p-4');
+            else if (px <= 12) tailwindClasses.push('p-6');
+            else tailwindClasses.push('p-8');
+          } else {
+            // X padding
+            if (px === 0) tailwindClasses.push('px-0');
+            else if (px <= 2) tailwindClasses.push('px-1');
+            else if (px <= 4) tailwindClasses.push('px-2');
+            else if (px <= 6) tailwindClasses.push('px-3');
+            else if (px <= 8) tailwindClasses.push('px-4');
+            else if (px <= 12) tailwindClasses.push('px-6');
+            else tailwindClasses.push('px-8');
+
+            // Y padding
+            if (py === 0) tailwindClasses.push('py-0');
+            else if (py <= 2) tailwindClasses.push('py-1');
+            else if (py <= 4) tailwindClasses.push('py-2');
+            else if (py <= 6) tailwindClasses.push('py-3');
+            else if (py <= 8) tailwindClasses.push('py-4');
+            else if (py <= 12) tailwindClasses.push('py-6');
+            else tailwindClasses.push('py-8');
+          }
+        }
+
+        // Font size
+        if (styles.fontSize) {
+          const size = parseInt(styles.fontSize);
+          if (size <= 12) tailwindClasses.push('text-xs');
+          else if (size <= 14) tailwindClasses.push('text-sm');
+          else if (size <= 16) tailwindClasses.push('text-base');
+          else if (size <= 18) tailwindClasses.push('text-lg');
+          else if (size <= 20) tailwindClasses.push('text-xl');
+          else if (size <= 24) tailwindClasses.push('text-2xl');
+          else tailwindClasses.push('text-3xl');
+        }
+
+        // Font weight
+        if (styles.fontWeight) {
+          const weight = parseInt(styles.fontWeight);
+          if (weight <= 300) tailwindClasses.push('font-light');
+          else if (weight <= 400) tailwindClasses.push('font-normal');
+          else if (weight <= 500) tailwindClasses.push('font-medium');
+          else if (weight <= 600) tailwindClasses.push('font-semibold');
+          else tailwindClasses.push('font-bold');
+        }
+
+        // Box shadow
+        if (styles.boxShadow && styles.boxShadow !== 'none') {
+          if (styles.boxShadow.includes('1px'))
+            tailwindClasses.push('shadow-sm');
+          else if (styles.boxShadow.includes('2px'))
+            tailwindClasses.push('shadow');
+          else if (styles.boxShadow.includes('4px'))
+            tailwindClasses.push('shadow-md');
+          else if (styles.boxShadow.includes('8px'))
+            tailwindClasses.push('shadow-lg');
+          else tailwindClasses.push('shadow-xl');
+        }
+
+        return tailwindClasses.join(' ');
       }
-      
-      // Box shadow
-      if (styles.boxShadow && styles.boxShadow !== 'none') {
-        if (styles.boxShadow.includes('1px')) tailwindClasses.push('shadow-sm');
-        else if (styles.boxShadow.includes('2px')) tailwindClasses.push('shadow');
-        else if (styles.boxShadow.includes('4px')) tailwindClasses.push('shadow-md');
-        else if (styles.boxShadow.includes('8px')) tailwindClasses.push('shadow-lg');
-        else tailwindClasses.push('shadow-xl');
+
+      // Find this function in your UI file (around line 474)
+      function convertColorToTailwind(color, prefix = 'bg') {
+        // If the color is transparent or undefined, handle it appropriately
+        if (!color || color === 'transparent') return `${prefix}-transparent`;
+
+        // RGBA color parsing - Figma usually provides colors in rgba format
+        if (color.startsWith('rgba(')) {
+          // Extract the color values from rgba format
+          const values = color.replace('rgba(', '').replace(')', '').split(',');
+          const r = parseInt(values[0].trim());
+          const g = parseInt(values[1].trim());
+          const b = parseInt(values[2].trim());
+          const a = parseFloat(values[3].trim());
+
+          // Handle opacity separately if needed
+          let opacityClass = '';
+          if (a < 1) {
+            // In Tailwind 2.0+, opacity is handled with the opacity modifier
+            // Like bg-blue-500/75 for 75% opacity, but for broader compatibility:
+            opacityClass = mapOpacityToTailwind(a);
+          }
+
+          // Map the RGB values to Tailwind colors
+          const baseColor = mapRgbToTailwindColor(r, g, b, prefix);
+          return opacityClass ? `${baseColor} ${opacityClass}` : baseColor;
+        }
+
+        // If no match found
+        console.log(`Could not convert color: ${color} to Tailwind class`);
+        return `${prefix}-gray-800`; // Fallback
       }
-      
-      return tailwindClasses.join(' ');
-    }
-    
-    function convertColorToTailwind(color, prefix = 'bg') {
-      // Simplified color detection - a real plugin would use a more sophisticated approach
-      if (color.includes('255, 255, 255')) return `${prefix}-white`;
-      if (color.includes('0, 0, 0')) return `${prefix}-black`;
-      
-      // Basic reds
-      if (color.includes('239, 68, 68')) return `${prefix}-red-500`;
-      if (color.includes('220, 38, 38')) return `${prefix}-red-600`;
-      
-      // Basic blues
-      if (color.includes('59, 130, 246')) return `${prefix}-blue-500`;
-      if (color.includes('37, 99, 235')) return `${prefix}-blue-600`;
-      
-      // Basic greens
-      if (color.includes('34, 197, 94')) return `${prefix}-green-500`;
-      if (color.includes('22, 163, 74')) return `${prefix}-green-600`;
-      
-      // Basic grays
-      if (color.includes('229, 231, 235')) return `${prefix}-gray-200`;
-      if (color.includes('156, 163, 175')) return `${prefix}-gray-400`;
-      if (color.includes('107, 114, 128')) return `${prefix}-gray-500`;
-      if (color.includes('75, 85, 99')) return `${prefix}-gray-600`;
-      
-      // Indigo (common in Figma UI kits)
-      if (color.includes('79, 70, 229')) return `${prefix}-indigo-500`;
-      if (color.includes('67, 56, 202')) return `${prefix}-indigo-600`;
-      
-      // Default - just return a common color
-      return `${prefix}-gray-800`;
-    }
-  </script>
-</body>
+
+      // Helper function to map RGB values to Tailwind color classes
+      function mapRgbToTailwindColor(r, g, b, prefix) {
+        // White and black detection
+        if (r > 240 && g > 240 && b > 240) return `${prefix}-white`;
+        if (r < 15 && g < 15 && b < 15) return `${prefix}-black`;
+
+        // Determine if it's a grayscale color (all RGB values are close to each other)
+        const isGrayscale =
+          Math.abs(r - g) < 30 && Math.abs(g - b) < 30 && Math.abs(r - b) < 30;
+
+        if (isGrayscale) {
+          // Map to gray scale
+          const brightness = (r + g + b) / 3; // Average the RGB values
+
+          if (brightness > 220) return `${prefix}-gray-100`;
+          if (brightness > 200) return `${prefix}-gray-200`;
+          if (brightness > 170) return `${prefix}-gray-300`;
+          if (brightness > 140) return `${prefix}-gray-400`;
+          if (brightness > 110) return `${prefix}-gray-500`;
+          if (brightness > 80) return `${prefix}-gray-600`;
+          if (brightness > 50) return `${prefix}-gray-700`;
+          if (brightness > 30) return `${prefix}-gray-800`;
+          return `${prefix}-gray-900`;
+        }
+
+        // Color detection based on hue dominance
+        // Red dominant
+        if (r > g + 50 && r > b + 50) {
+          const intensity = r;
+          if (intensity > 230) return `${prefix}-red-500`;
+          if (intensity > 200) return `${prefix}-red-600`;
+          if (intensity > 170) return `${prefix}-red-700`;
+          if (intensity > 140) return `${prefix}-red-800`;
+          return `${prefix}-red-900`;
+        }
+
+        // Green dominant
+        if (g > r + 50 && g > b + 50) {
+          const intensity = g;
+          if (intensity > 230) return `${prefix}-green-500`;
+          if (intensity > 200) return `${prefix}-green-600`;
+          if (intensity > 170) return `${prefix}-green-700`;
+          if (intensity > 140) return `${prefix}-green-800`;
+          return `${prefix}-green-900`;
+        }
+
+        // Blue dominant
+        if (b > r + 50 && b > g + 50) {
+          const intensity = b;
+          if (intensity > 230) return `${prefix}-blue-500`;
+          if (intensity > 200) return `${prefix}-blue-600`;
+          if (intensity > 170) return `${prefix}-blue-700`;
+          if (intensity > 140) return `${prefix}-blue-800`;
+          return `${prefix}-blue-900`;
+        }
+
+        // Yellow (red and green high)
+        if (r > 200 && g > 200 && b < 100) {
+          const intensity = (r + g) / 2;
+          if (intensity > 230) return `${prefix}-yellow-400`;
+          if (intensity > 200) return `${prefix}-yellow-500`;
+          return `${prefix}-yellow-600`;
+        }
+
+        // Purple (red and blue high)
+        if (r > 150 && b > 150 && g < 100) {
+          const intensity = (r + b) / 2;
+          if (intensity > 230) return `${prefix}-purple-500`;
+          if (intensity > 200) return `${prefix}-purple-600`;
+          return `${prefix}-purple-700`;
+        }
+
+        // Indigo/Violet (closer to blue)
+        if (b > 180 && r > 100 && r < 150) {
+          if (b > 220) return `${prefix}-indigo-500`;
+          return `${prefix}-indigo-600`;
+        }
+
+        // Default fallback for colors we couldn't map
+        console.log(
+          `Could not specifically map RGB color: rgb(${r},${g},${b}) to Tailwind class`
+        );
+        return `${prefix}-gray-800`;
+      }
+
+      // Map opacity values to Tailwind opacity classes
+      function mapOpacityToTailwind(opacity) {
+        if (opacity <= 0.05) return 'opacity-5';
+        if (opacity <= 0.1) return 'opacity-10';
+        if (opacity <= 0.2) return 'opacity-20';
+        if (opacity <= 0.3) return 'opacity-30';
+        if (opacity <= 0.4) return 'opacity-40';
+        if (opacity <= 0.5) return 'opacity-50';
+        if (opacity <= 0.6) return 'opacity-60';
+        if (opacity <= 0.7) return 'opacity-70';
+        if (opacity <= 0.8) return 'opacity-80';
+        if (opacity <= 0.9) return 'opacity-90';
+        return ''; // No opacity class needed for opacity > 0.9
+      }
+    </script>
+  </body>
 </html>
